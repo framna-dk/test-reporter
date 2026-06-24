@@ -1,10 +1,15 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import {DartJsonParser} from '../src/parsers/dart-json/dart-json-parser'
-import {ParseOptions} from '../src/test-parser'
-import {getReport} from '../src/report/get-report'
-import {normalizeFilePath} from '../src/utils/path-utils'
+import {DartJsonParser} from '../src/parsers/dart-json/dart-json-parser.js'
+import {ParseOptions} from '../src/test-parser.js'
+import {DEFAULT_OPTIONS, getReport} from '../src/report/get-report.js'
+import {normalizeFilePath} from '../src/utils/path-utils.js'
+
+import {fileURLToPath} from 'url'
+import {dirname} from 'path'
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 describe('dart-json tests', () => {
   it('produces empty test run result when there are no test cases', async () => {
@@ -65,5 +70,67 @@ describe('dart-json tests', () => {
     const report = getReport([result])
     fs.mkdirSync(path.dirname(outputPath), {recursive: true})
     fs.writeFileSync(outputPath, report)
+  })
+
+  it('report does not include a title by default', async () => {
+    const fixturePath = path.join(__dirname, 'fixtures', 'dart-json.json')
+    const filePath = normalizeFilePath(path.relative(__dirname, fixturePath))
+    const fileContent = fs.readFileSync(fixturePath, {encoding: 'utf8'})
+
+    const opts: ParseOptions = {
+      parseErrors: true,
+      trackedFiles: []
+    }
+
+    const parser = new DartJsonParser(opts, 'dart')
+    const result = await parser.parse(filePath, fileContent)
+    const report = getReport([result])
+    // Report should have the badge as the first line
+    expect(report).toMatch(/^!\[Tests failed]/)
+  })
+
+  it.each([
+    ['empty string', ''],
+    ['space', ' '],
+    ['tab', '\t'],
+    ['newline', '\n']
+  ])('report does not include a title when configured value is %s', async (_, reportTitle) => {
+    const fixturePath = path.join(__dirname, 'fixtures', 'dart-json.json')
+    const filePath = normalizeFilePath(path.relative(__dirname, fixturePath))
+    const fileContent = fs.readFileSync(fixturePath, {encoding: 'utf8'})
+
+    const opts: ParseOptions = {
+      parseErrors: true,
+      trackedFiles: []
+    }
+
+    const parser = new DartJsonParser(opts, 'dart')
+    const result = await parser.parse(filePath, fileContent)
+    const report = getReport([result], {
+      ...DEFAULT_OPTIONS,
+      reportTitle
+    })
+    // Report should have the badge as the first line
+    expect(report).toMatch(/^!\[Tests failed]/)
+  })
+
+  it('report includes a custom report title', async () => {
+    const fixturePath = path.join(__dirname, 'fixtures', 'dart-json.json')
+    const filePath = normalizeFilePath(path.relative(__dirname, fixturePath))
+    const fileContent = fs.readFileSync(fixturePath, {encoding: 'utf8'})
+
+    const opts: ParseOptions = {
+      parseErrors: true,
+      trackedFiles: []
+    }
+
+    const parser = new DartJsonParser(opts, 'dart')
+    const result = await parser.parse(filePath, fileContent)
+    const report = getReport([result], {
+      ...DEFAULT_OPTIONS,
+      reportTitle: 'My Custom Title'
+    })
+    // Report should have the title as the first line
+    expect(report).toMatch(/^# My Custom Title\n/)
   })
 })

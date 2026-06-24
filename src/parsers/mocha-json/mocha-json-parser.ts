@@ -1,4 +1,4 @@
-import {ParseOptions, TestParser} from '../../test-parser'
+import {ParseOptions, TestParser} from '../../test-parser.js'
 import {
   TestCaseError,
   TestCaseResult,
@@ -6,10 +6,10 @@ import {
   TestGroupResult,
   TestRunResult,
   TestSuiteResult
-} from '../../test-results'
-import {getExceptionSource} from '../../utils/node-utils'
-import {getBasePath, normalizeFilePath} from '../../utils/path-utils'
-import {MochaJson, MochaJsonTest} from './mocha-json-types'
+} from '../../test-results.js'
+import {getExceptionSource} from '../../utils/node-utils.js'
+import {getBasePath, normalizeFilePath} from '../../utils/path-utils.js'
+import {MochaJson, MochaJsonTest} from './mocha-json-types.js'
 
 export class MochaJsonParser implements TestParser {
   assumedWorkDir: string | undefined
@@ -61,7 +61,7 @@ export class MochaJsonParser implements TestParser {
   private processTest(suite: TestSuiteResult, test: MochaJsonTest, result: TestExecutionResult): void {
     const groupName =
       test.fullTitle !== test.title
-        ? test.fullTitle.substr(0, test.fullTitle.length - test.title.length).trimEnd()
+        ? test.fullTitle.substring(0, test.fullTitle.length - test.title.length).trimEnd()
         : null
 
     let group = suite.groups.find(grp => grp.name === groupName)
@@ -103,7 +103,7 @@ export class MochaJsonParser implements TestParser {
     path = normalizeFilePath(path)
     const workDir = this.getWorkDir(path)
     if (workDir !== undefined && path.startsWith(workDir)) {
-      path = path.substr(workDir.length)
+      path = path.substring(workDir.length)
     }
     return path
   }

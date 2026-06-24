@@ -1,6 +1,5 @@
 name: Test Reporter
-description: |
-  Shows test results in GitHub UI: .NET (xUnit, NUnit, MSTest), Dart, Flutter, Java (JUnit), JavaScript (JEST, Mocha)
+description: Displays test results from popular testing frameworks directly in GitHub
 author: Michal Dorner <dorner.michal@gmail.com>
 inputs:
   artifact:
@@ -26,11 +25,16 @@ inputs:
     description: |
       Format of test results. Supported options:
         - dart-json
+        - dotnet-nunit
         - dotnet-trx
         - flutter-json
+        - golang-json
         - java-junit
         - jest-junit
         - mocha-json
+        - tester-junit
+        - phpunit-junit
+        - python-xunit
         - rspec-json
         - swift-xunit
     required: true
@@ -38,14 +42,23 @@ inputs:
     description: |
       Limits which test suites are listed. Supported options:
         - all
-        - only-failed
+        - failed
+        - none
     required: false
     default: 'all'
   list-tests:
     description: |
       Limits which test cases are listed. Supported options:
         - all
-        - only-failed
+        - failed
+        - none
+    required: false
+    default: 'all'
+  list-files:
+    description: |
+      Limits which test result files are listed. Supported options:
+        - all
+        - failed
         - none
     required: false
     default: 'all'
@@ -66,6 +79,10 @@ inputs:
   working-directory:
     description: Relative path under $GITHUB_WORKSPACE where the repository was checked out
     required: false
+  report-title:
+    description: Title for the test report summary
+    required: false
+    default: ''
   only-summary:
     description: |
       Allows you to generate only the summary.
@@ -73,6 +90,24 @@ inputs:
       Detailed listing of test suites and test cases will be skipped.
     default: 'false'
     required: false
+  use-actions-summary:
+    description: |
+      Allows you to generate reports for Actions Summary
+      https://github.com/orgs/github/teams/engineering/discussions/871
+    default: 'true'
+    required: false
+  badge-title:
+    description: Customize badge title
+    required: false
+    default: 'tests'
+  collapsed:
+    description: |
+      Controls whether test report details are collapsed or expanded. Supported options:
+        - auto: Collapse only if all tests pass (default behavior)
+        - always: Always collapse the report details
+        - never: Always expand the report details
+    required: false
+    default: 'auto'
   token:
     description: GitHub Access Token
     required: false
@@ -95,8 +130,12 @@ outputs:
     description: Check run URL
   url_html:
     description: Check run URL HTML
+  summary_file:
+    description: Path to a file containing the generated test report summary in Markdown format
+  slug_prefix:
+    description: Random prefix added to generated report anchor slugs for this action run
 runs:
-  using: 'node20'
+  using: 'node24'
   main: 'dist/index.js'
 branding:
   color: blue

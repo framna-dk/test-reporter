@@ -1,5 +1,4 @@
-import { Console } from 'console'
-import {ParseOptions, TestParser} from '../../test-parser'
+import {ParseOptions, TestParser} from '../../test-parser.js'
 import {
   TestCaseError,
   TestCaseResult,
@@ -7,8 +6,8 @@ import {
   TestGroupResult,
   TestRunResult,
   TestSuiteResult
-} from '../../test-results'
-import {RspecJson, RspecExample} from './rspec-json-types'
+} from '../../test-results.js'
+import {RspecJson, RspecExample} from './rspec-json-types.js'
 
 export class RspecJsonParser implements TestParser {
   assumedWorkDir: string | undefined
@@ -56,7 +55,7 @@ export class RspecJsonParser implements TestParser {
   private processTest(suite: TestSuiteResult, test: RspecExample, result: TestExecutionResult): void {
     const groupName =
       test.full_description !== test.description
-        ? test.full_description.substr(0, test.full_description.length - test.description.length).trimEnd()
+        ? test.full_description.substring(0, test.full_description.length - test.description.length).trimEnd()
         : null
 
     let group = suite.groups.find(grp => grp.name === groupName)

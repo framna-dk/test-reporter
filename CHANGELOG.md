@@ -1,5 +1,76 @@
 # Changelog
 
+## 3.1.0
+* Feature: Add `list-files` input to control test report file listing https://github.com/dorny/test-reporter/pull/773
+* Feature: Add `summary_file` output with the path to the generated summary in Markdown format https://github.com/dorny/test-reporter/pull/772
+
+## 3.0.0
+* Feature: Use NodeJS 24 LTS as default runtime https://github.com/dorny/test-reporter/pull/738
+
+## 2.7.0
+* Feature: Add `slug-prefix` output for link anchors https://github.com/dorny/test-reporter/pull/731
+* Feature: Report `jest-junit` testsuite errors as failures https://github.com/dorny/test-reporter/pull/155
+* Security: Update dependencies to fix reported security vulnerabilities
+
+## 2.6.0
+* Fix: For `workflow_run` events, resolve the commit of the check run from related pull request head commits first (matching `workflow_run.head_branch`, then first PR), and fall back to `workflow_run.head_sha` for non-PR runs https://github.com/dorny/test-reporter/pull/673
+* Change: The `test-reporter` action will listed all artifacts associated with the build run https://github.com/dorny/test-reporter/pull/693
+* Maintenance: Upgrade to ESLint v9 https://github.com/dorny/test-reporter/pull/629
+
+## 2.5.0
+* Feature: Add Nette Tester support with `tester-junit` reporter https://github.com/dorny/test-reporter/pull/707
+* Maintenance: Bump actions/upload-artifact from 5 to 6 https://github.com/dorny/test-reporter/pull/695
+
+## 2.4.0
+* Feature: Add PHPUnit support with JUnit XML dialect parser https://github.com/dorny/test-reporter/pull/422
+* Feature: Add JUnit XML sample files and tests for validation https://github.com/dorny/test-reporter/pull/701
+* Fix: Refactor deprecated `String.substr()` function to use `String.substring()` https://github.com/dorny/test-reporter/pull/704
+
+## 2.3.0
+* Feature: Add Python support with `python-xunit` reporter (pytest) https://github.com/dorny/test-reporter/pull/643
+* Feature: Add pytest traceback parsing and `directory-mapping` option https://github.com/dorny/test-reporter/pull/238
+* Performance: Update sax.js to fix large XML file parsing https://github.com/dorny/test-reporter/pull/681
+* Documentation: Complete documentation for all supported reporters https://github.com/dorny/test-reporter/pull/691
+* Security: Bump js-yaml and mocha in /reports/mocha (fixes prototype pollution) https://github.com/dorny/test-reporter/pull/682
+
+## 2.2.0
+* Feature: Add collapsed option to control report summary visibility https://github.com/dorny/test-reporter/pull/664
+* Fix badge encoding for values including underscore and hyphens https://github.com/dorny/test-reporter/pull/672
+* Fix missing `report-title` attribute in action definition https://github.com/dorny/test-reporter/pull/637
+* Refactor variable names to fix shadowing issues https://github.com/dorny/test-reporter/pull/630
+
+## 2.1.1
+* Fix error when a TestMethod element does not have a className attribute in a trx file https://github.com/dorny/test-reporter/pull/623
+* Add stack trace from trx to summary https://github.com/dorny/test-reporter/pull/615
+* List only failed tests https://github.com/dorny/test-reporter/pull/606
+* Add type definitions to `github-utils.ts` https://github.com/dorny/test-reporter/pull/604
+* Avoid split on undefined https://github.com/dorny/test-reporter/pull/258
+* Return links to summary report https://github.com/dorny/test-reporter/pull/588
+* Add step summary short summary https://github.com/dorny/test-reporter/pull/589
+* Fix for empty TRX TestDefinitions https://github.com/dorny/test-reporter/pull/582
+* Increase step summary limit to 1MiB https://github.com/dorny/test-reporter/pull/581
+* Fix input description for list options https://github.com/dorny/test-reporter/pull/572
+
+## 2.1.0
+* Feature: Add summary title https://github.com/dorny/test-reporter/pull/568
+* Feature: Add Golang test parser https://github.com/dorny/test-reporter/pull/571
+* Increase step summary limit to 1MiB https://github.com/dorny/test-reporter/pull/581
+* Fix for empty TRX TestDefinitions https://github.com/dorny/test-reporter/pull/582
+* Fix input description for list options https://github.com/dorny/test-reporter/pull/572
+* Update npm packages https://github.com/dorny/test-reporter/pull/583
+
+## 2.0.0
+* Parse JUnit report with detailed message in failure https://github.com/dorny/test-reporter/pull/559
+* Support displaying test results in markdown using GitHub Actions Job Summaries https://github.com/dorny/test-reporter/pull/383
+
+## 1.9.1
+* Fix problematic retransmission of authentication token https://github.com/dorny/test-reporter/pull/438
+* Report correct number of tests in Dart https://github.com/dorny/test-reporter/pull/426
+* Number of completed tests mismatches passed/failed https://github.com/dorny/test-reporter/issues/319
+
+## 1.9.0
+* Add support for Rspec (Ruby) https://github.com/dorny/test-reporter/pull/398
+
 ## 1.8.0
 * Add `SwiftXunitParser` class based on `JavaJunitParser` for `swift-xunit` reporter https://github.com/dorny/test-reporter/pull/317
 * Use NodeJS 18 LTS as default runtime https://github.com/dorny/test-reporter/pull/332

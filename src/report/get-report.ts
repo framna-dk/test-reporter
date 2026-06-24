@@ -1,58 +1,77 @@
 import * as core from '@actions/core'
-import {TestExecutionResult, TestRunResult, TestSuiteResult} from '../test-results'
-import {Align, formatTime, Icon, link, table} from '../utils/markdown-utils'
-import {DEFAULT_LOCALE} from '../utils/node-utils'
-import {getFirstNonEmptyLine} from '../utils/parse-utils'
-import {slug} from '../utils/slugger'
+import {TestExecutionResult, TestRunResult, TestSuiteResult} from '../test-results.js'
+import {Align, formatTime, Icon, link, table} from '../utils/markdown-utils.js'
+import {DEFAULT_LOCALE} from '../utils/node-utils.js'
+import {getFirstNonEmptyLine} from '../utils/parse-utils.js'
+import {slug} from '../utils/slugger.js'
 
 const MAX_REPORT_LENGTH = 65535
+const MAX_ACTIONS_SUMMARY_LENGTH = 1048576
 
 export interface ReportOptions {
-  listSuites: 'all' | 'failed'
+  listSuites: 'all' | 'failed' | 'none'
   listTests: 'all' | 'failed' | 'none'
+  slugPrefix: string
+  listFiles: 'all' | 'failed' | 'none'
   baseUrl: string
   onlySummary: boolean
+  useActionsSummary: boolean
+  badgeTitle: string
+  reportTitle: string
+  collapsed: 'auto' | 'always' | 'never'
 }
 
-const defaultOptions: ReportOptions = {
+export const DEFAULT_OPTIONS: ReportOptions = {
   listSuites: 'all',
   listTests: 'all',
+  slugPrefix: '',
+  listFiles: 'all',
   baseUrl: '',
-  onlySummary: false
+  onlySummary: false,
+  useActionsSummary: true,
+  badgeTitle: 'tests',
+  reportTitle: '',
+  collapsed: 'auto'
 }
 
-export function getReport(results: TestRunResult[], options: ReportOptions = defaultOptions): string {
-  core.info('Generating check run summary')
-
+export function getReport(
+  results: TestRunResult[],
+  options: ReportOptions = DEFAULT_OPTIONS,
+  shortSummary = ''
+): string {
   applySort(results)
 
   const opts = {...options}
-  let lines = renderReport(results, opts)
+  let lines = renderReport(results, opts, shortSummary)
   let report = lines.join('\n')
 
-  if (getByteLength(report) <= MAX_REPORT_LENGTH) {
+  if (getByteLength(report) <= getMaxReportLength(options)) {
     return report
   }
 
   if (opts.listTests === 'all') {
     core.info("Test report summary is too big - setting 'listTests' to 'failed'")
     opts.listTests = 'failed'
-    lines = renderReport(results, opts)
+    lines = renderReport(results, opts, shortSummary)
     report = lines.join('\n')
-    if (getByteLength(report) <= MAX_REPORT_LENGTH) {
+    if (getByteLength(report) <= getMaxReportLength(options)) {
       return report
     }
   }
 
-  core.warning(`Test report summary exceeded limit of ${MAX_REPORT_LENGTH} bytes and will be trimmed`)
-  return trimReport(lines)
+  core.warning(`Test report summary exceeded limit of ${getMaxReportLength(options)} bytes and will be trimmed`)
+  return trimReport(lines, options)
 }
 
-function trimReport(lines: string[]): string {
+function getMaxReportLength(options: ReportOptions = DEFAULT_OPTIONS): number {
+  return options.useActionsSummary ? MAX_ACTIONS_SUMMARY_LENGTH : MAX_REPORT_LENGTH
+}
+
+function trimReport(lines: string[], options: ReportOptions): string {
   const closingBlock = '```'
-  const errorMsg = `**Report exceeded GitHub limit of ${MAX_REPORT_LENGTH} bytes and has been trimmed**`
+  const errorMsg = `**Report exceeded GitHub limit of ${getMaxReportLength(options)} bytes and has been trimmed**`
   const maxErrorMsgLength = closingBlock.length + errorMsg.length + 2
-  const maxReportLength = MAX_REPORT_LENGTH - maxErrorMsgLength
+  const maxReportLength = getMaxReportLength(options) - maxErrorMsgLength
 
   let reportLength = 0
   let codeBlock = false
@@ -90,9 +109,19 @@ function getByteLength(text: string): number {
   return Buffer.byteLength(text, 'utf8')
 }
 
-function renderReport(results: TestRunResult[], options: ReportOptions): string[] {
+function renderReport(results: TestRunResult[], options: ReportOptions, shortSummary: string): string[] {
   const sections: string[] = []
-  const badge = getReportBadge(results)
+
+  const reportTitle: string = options.reportTitle.trim()
+  if (reportTitle) {
+    sections.push(`# ${reportTitle}`)
+  }
+
+  if (shortSummary) {
+    sections.push(`## ${shortSummary}`)
+  }
+
+  const badge = getReportBadge(results, options)
   sections.push(badge)
 
   const runs = getTestRunsReport(results, options)
@@ -101,14 +130,14 @@ function renderReport(results: TestRunResult[], options: ReportOptions): string[
   return sections
 }
 
-function getReportBadge(results: TestRunResult[]): string {
+function getReportBadge(results: TestRunResult[], options: ReportOptions): string {
   const passed = results.reduce((sum, tr) => sum + tr.passed, 0)
   const skipped = results.reduce((sum, tr) => sum + tr.skipped, 0)
   const failed = results.reduce((sum, tr) => sum + tr.failed, 0)
-  return getBadge(passed, failed, skipped)
+  return getBadge(passed, failed, skipped, options)
 }
 
-function getBadge(passed: number, failed: number, skipped: number): string {
+export function getBadge(passed: number, failed: number, skipped: number, options: ReportOptions): string {
   const text = []
   if (passed > 0) {
     text.push(`${passed} passed`)
@@ -128,25 +157,47 @@ function getBadge(passed: number, failed: number, skipped: number): string {
     color = 'yellow'
   }
   const hint = failed > 0 ? 'Tests failed' : 'Tests passed successfully'
-  const uri = encodeURIComponent(`tests-${message}-${color}`)
-  return `![${hint}](https://img.shields.io/badge/${uri})`
+  const encodedBadgeTitle = encodeImgShieldsURIComponent(options.badgeTitle)
+  const encodedMessage = encodeImgShieldsURIComponent(message)
+  const encodedColor = encodeImgShieldsURIComponent(color)
+  return `![${hint}](https://img.shields.io/badge/${encodedBadgeTitle}-${encodedMessage}-${encodedColor})`
 }
 
 function getTestRunsReport(testRuns: TestRunResult[], options: ReportOptions): string[] {
   const sections: string[] = []
+  const totalFailed = testRuns.reduce((sum, tr) => sum + tr.failed, 0)
 
-  if (testRuns.length > 1 || options.onlySummary) {
-    const tableData = testRuns.map((tr, runIndex) => {
+  // Determine if report should be collapsed based on collapsed option
+  const shouldCollapse = options.collapsed === 'always' || (options.collapsed === 'auto' && totalFailed === 0)
+
+  if (shouldCollapse) {
+    sections.push(`<details><summary>Expand for details</summary>`)
+    sections.push(` `)
+  }
+
+  // Filter test runs based on list-files option
+  const filteredTestRuns =
+    options.listFiles === 'failed'
+      ? testRuns.filter(tr => tr.result === 'failed')
+      : options.listFiles === 'none'
+        ? []
+        : testRuns
+
+  const tableData = filteredTestRuns
+    .map((tr, originalIndex) => ({tr, originalIndex}))
+    .filter(({tr}) => tr.passed > 0 || tr.failed > 0 || tr.skipped > 0)
+    .map(({tr, originalIndex}) => {
       const time = formatTime(tr.time)
       const name = tr.path
-      const addr = options.baseUrl + makeRunSlug(runIndex).link
+      const addr = options.baseUrl + makeRunSlug(originalIndex, options).link
       const nameLink = link(name, addr)
-      const passed = tr.passed > 0 ? `${tr.passed}${Icon.success}` : ''
-      const failed = tr.failed > 0 ? `${tr.failed}${Icon.fail}` : ''
-      const skipped = tr.skipped > 0 ? `${tr.skipped}${Icon.skip}` : ''
+      const passed = tr.passed > 0 ? `${tr.passed} ${Icon.success}` : ''
+      const failed = tr.failed > 0 ? `${tr.failed} ${Icon.fail}` : ''
+      const skipped = tr.skipped > 0 ? `${tr.skipped} ${Icon.skip}` : ''
       return [nameLink, passed, failed, skipped, time]
     })
 
+  if (tableData.length > 0) {
     const resultsTable = table(
       ['Report', 'Passed', 'Failed', 'Skipped', 'Time'],
       [Align.Left, Align.Right, Align.Right, Align.Right, Align.Right],
@@ -156,45 +207,51 @@ function getTestRunsReport(testRuns: TestRunResult[], options: ReportOptions): s
   }
 
   if (options.onlySummary === false) {
-    const suitesReports = testRuns.map((tr, i) => getSuitesReport(tr, i, options)).flat()
+    const suitesReports = filteredTestRuns.map((tr, i) => getSuitesReport(tr, i, options)).flat()
     sections.push(...suitesReports)
+  }
+
+  if (shouldCollapse) {
+    sections.push(`</details>`)
   }
   return sections
 }
 
 function getSuitesReport(tr: TestRunResult, runIndex: number, options: ReportOptions): string[] {
   const sections: string[] = []
-
-  const trSlug = makeRunSlug(runIndex)
-  const nameLink = `<a id="${trSlug.id}" href="${options.baseUrl + trSlug.link}">${tr.path}</a>`
-  const icon = getResultIcon(tr.result)
-  sections.push(`## ${icon}\xa0${nameLink}`)
-
-  const time = formatTime(tr.time)
-  const headingLine2 =
-    tr.tests > 0
-      ? `**${tr.tests}** tests were completed in **${time}** with **${tr.passed}** passed, **${tr.failed}** failed and **${tr.skipped}** skipped.`
-      : 'No tests found'
-  sections.push(headingLine2)
-
   const suites = options.listSuites === 'failed' ? tr.failedSuites : tr.suites
-  if (suites.length > 0) {
-    const suitesTable = table(
-      ['Test suite', 'Passed', 'Failed', 'Skipped', 'Time'],
-      [Align.Left, Align.Right, Align.Right, Align.Right, Align.Right],
-      ...suites.map((s, suiteIndex) => {
-        const tsTime = formatTime(s.time)
-        const tsName = s.name
-        const skipLink = options.listTests === 'none' || (options.listTests === 'failed' && s.result !== 'failed')
-        const tsAddr = options.baseUrl + makeSuiteSlug(runIndex, suiteIndex).link
-        const tsNameLink = skipLink ? tsName : link(tsName, tsAddr)
-        const passed = s.passed > 0 ? `${s.passed}${Icon.success}` : ''
-        const failed = s.failed > 0 ? `${s.failed}${Icon.fail}` : ''
-        const skipped = s.skipped > 0 ? `${s.skipped}${Icon.skip}` : ''
-        return [tsNameLink, passed, failed, skipped, tsTime]
-      })
-    )
-    sections.push(suitesTable)
+
+  if (options.listSuites !== 'none') {
+    const trSlug = makeRunSlug(runIndex, options)
+    const nameLink = `<a id="${trSlug.id}" href="${options.baseUrl + trSlug.link}">${tr.path}</a>`
+    const icon = getResultIcon(tr.result)
+    sections.push(`## ${icon}\xa0${nameLink}`)
+
+    const time = formatTime(tr.time)
+    const headingLine2 =
+      tr.tests > 0
+        ? `**${tr.tests}** tests were completed in **${time}** with **${tr.passed}** passed, **${tr.failed}** failed and **${tr.skipped}** skipped.`
+        : 'No tests found'
+    sections.push(headingLine2)
+
+    if (suites.length > 0) {
+      const suitesTable = table(
+        ['Test suite', 'Passed', 'Failed', 'Skipped', 'Time'],
+        [Align.Left, Align.Right, Align.Right, Align.Right, Align.Right],
+        ...suites.map((s, suiteIndex) => {
+          const tsTime = formatTime(s.time)
+          const tsName = s.name
+          const skipLink = options.listTests === 'none' || (options.listTests === 'failed' && s.result !== 'failed')
+          const tsAddr = options.baseUrl + makeSuiteSlug(runIndex, suiteIndex, options).link
+          const tsNameLink = skipLink ? tsName : link(tsName, tsAddr)
+          const passed = s.passed > 0 ? `${s.passed} ${Icon.success}` : ''
+          const failed = s.failed > 0 ? `${s.failed} ${Icon.fail}` : ''
+          const skipped = s.skipped > 0 ? `${s.skipped} ${Icon.skip}` : ''
+          return [tsNameLink, passed, failed, skipped, tsTime]
+        })
+      )
+      sections.push(suitesTable)
+    }
   }
 
   if (options.listTests !== 'none') {
@@ -220,7 +277,7 @@ function getTestsReport(ts: TestSuiteResult, runIndex: number, suiteIndex: numbe
   const sections: string[] = []
 
   const tsName = ts.name
-  const tsSlug = makeSuiteSlug(runIndex, suiteIndex)
+  const tsSlug = makeSuiteSlug(runIndex, suiteIndex, options)
   const tsNameLink = `<a id="${tsSlug.id}" href="${options.baseUrl + tsSlug.link}">${tsName}</a>`
   const icon = getResultIcon(ts.result)
   sections.push(`### ${icon}\xa0${tsNameLink}`)
@@ -232,6 +289,9 @@ function getTestsReport(ts: TestSuiteResult, runIndex: number, suiteIndex: numbe
     }
     const space = grp.name ? '  ' : ''
     for (const tc of grp.tests) {
+      if (options.listTests === 'failed' && tc.result !== 'failed') {
+        continue
+      }
       const result = getResultIcon(tc.result)
       sections.push(`${space}${result} ${tc.name}`)
       if (tc.error) {
@@ -249,14 +309,14 @@ function getTestsReport(ts: TestSuiteResult, runIndex: number, suiteIndex: numbe
   return sections
 }
 
-function makeRunSlug(runIndex: number): {id: string; link: string} {
+function makeRunSlug(runIndex: number, options: ReportOptions): {id: string; link: string} {
   // use prefix to avoid slug conflicts after escaping the paths
-  return slug(`r${runIndex}`)
+  return slug(`r${runIndex}`, options)
 }
 
-function makeSuiteSlug(runIndex: number, suiteIndex: number): {id: string; link: string} {
+function makeSuiteSlug(runIndex: number, suiteIndex: number, options: ReportOptions): {id: string; link: string} {
   // use prefix to avoid slug conflicts after escaping the paths
-  return slug(`r${runIndex}s${suiteIndex}`)
+  return slug(`r${runIndex}s${suiteIndex}`, options)
 }
 
 function getResultIcon(result: TestExecutionResult): string {
@@ -270,4 +330,8 @@ function getResultIcon(result: TestExecutionResult): string {
     default:
       return ''
   }
+}
+
+function encodeImgShieldsURIComponent(component: string): string {
+  return encodeURIComponent(component).replace(/-/g, '--').replace(/_/g, '__')
 }

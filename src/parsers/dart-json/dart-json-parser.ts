@@ -1,6 +1,6 @@
-import {ParseOptions, TestParser} from '../../test-parser'
+import {ParseOptions, TestParser} from '../../test-parser.js'
 
-import {getBasePath, normalizeFilePath} from '../../utils/path-utils'
+import {getBasePath, normalizeFilePath} from '../../utils/path-utils.js'
 
 import {
   ReportEvent,
@@ -17,7 +17,7 @@ import {
   isDoneEvent,
   isMessageEvent,
   MessageEvent
-} from './dart-json-types'
+} from './dart-json-types.js'
 
 import {
   TestExecutionResult,
@@ -26,7 +26,7 @@ import {
   TestGroupResult,
   TestCaseResult,
   TestCaseError
-} from '../../test-results'
+} from '../../test-results.js'
 
 class TestRun {
   constructor(
@@ -242,13 +242,13 @@ export class DartJsonParser implements TestParser {
   private getRelativePath(path: string): string {
     const prefix = 'file://'
     if (path.startsWith(prefix)) {
-      path = path.substr(prefix.length)
+      path = path.substring(prefix.length)
     }
 
     path = normalizeFilePath(path)
     const workDir = this.getWorkDir(path)
     if (workDir !== undefined && path.startsWith(workDir)) {
-      path = path.substr(workDir.length)
+      path = path.substring(workDir.length)
     }
     return path
   }
